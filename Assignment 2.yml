@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: JenVPC with igw, NAT, Priavte and Public Subnets
+
+Parameters:
+  VpcCidrBlock:
+    Description: "VPC CIDR Block"
+    Type: String
+    Default: "10.0.0.0/16"
+
+  PublicSubnet1CidrBlock:
+    Description: "Public subnet 1 CIDR Block"
+    Type: String
+    Default: "10.0.1.0/24"
+
+  PublicSubnet2CidrBlock:
+    Description: "Public Subnet 2 CIDR Block"
+    Type: String
+    Default: "10.0.2.0/24"
+
+  PrivateSubnet1CidrBlock:
+    Description: "Private Subnet 1 CIDR Block"
+    Type: String
+    Default: "10.0.3.0/24"
+
+  PrivateSubnet2CidrBlock:
+    Description: "Private Subnet 2 CIDR Block"
+    Type: String
+    Default: "10.0.4.0/24"
+
+Resources:
+  JenVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: vpc-maameesi
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: JenVPC
+    Properties:
+      Tags:
+        - Key: Name
+          Value: internetGat
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref JenVPC
+      InternetGatewayId: !Ref IGW
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: JenVPC
+    Properties:
+      VpcId: !Ref JenVPC
+      CidrBlock: !Ref PublicSubnet1CidrBlock
+      AvailabilityZone: "us-east-1a"
+      MapPublicIpOnLaunch: "true"
+      Tags:
+        - Key: Name
+          Value: "public-subnet-1"
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: JenVPC
+    Properties:
+      VpcId: !Ref JenVPC
+      CidrBlock: !Ref PublicSubnet2CidrBlock
+      AvailabilityZone: "us-east-1b"
+      MapPublicIpOnLaunch: "true"
+      Tags:
+        - Key: Name
+          Value: "public-subnet-2"
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: JenVPC
+    Properties:
+      VpcId: !Ref JenVPC
+      CidrBlock: !Ref PrivateSubnet1CidrBlock
+      AvailabilityZone: "us-east-1a"
+      Tags:
+        - Key: Name
+          Value: "private-subnet-1"
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: JenVPC
+    Properties:
+      VpcId: !Ref JenVPC
+      CidrBlock: !Ref PrivateSubnet2CidrBlock
+      AvailabilityZone: "us-east-1b"
+      Tags:
+        - Key: Name
+          Value: "private-subnet-2"
+
+  PrivateRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref JenVPC
+      Tags:
+        - Key: Name
+          Value: Private-rt
+
+  PublicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref JenVPC
+      Tags:
+        - Key: Name
+          Value: Public-rt
+
+  PublicRoute:
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+
+
+  PublicSubnetRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetRouteTableAssociation1:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+  NATGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  RouteNATGateway:
+    DependsOn: NATGateway
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NATGateway
+
+  PrivateSubnetRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetRouteTableAssociation1:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+ 
+
